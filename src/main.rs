@@ -2,7 +2,9 @@ use youtube_dl::YoutubeDl;
 use youtube_dl::YoutubeDlOutput;
 use std::collections::HashMap;
 use std::env;
+use std::fs;
 //use std::io::{self, Write};
+use std::path::Path;
 //use std::process::Command;
 
 struct Format {
@@ -11,9 +13,20 @@ struct Format {
   ext: String,
 }
 
+fn escape(input: String) -> String {
+  input.replace("(", "\\(")
+    .replace(")", "\\)")
+    .replace("[", "\\[")
+    .replace("]", "\\]")
+    .replace("-", "\\-")
+    //.replace(" ", "\\ ")
+}
+
 fn main() {
   let args: Vec<String> = env::args().collect();
-  //let output = YoutubeDl::new("https://www.youtube.com/watch?v=ZFihgCtk_aw")
+  if args.len() < 2 {
+    panic!();
+  }
   let url = &args[1];
   let output = YoutubeDl::new(url)
     .socket_timeout("15")
@@ -62,7 +75,7 @@ fn main() {
             best_audio.insert(ext.clone(), Format{id: format_id.clone(), size: tbr, ext: ext.clone()});
           }
         }
-        println!();
+        //println!();
       }
     }
   }
@@ -72,19 +85,24 @@ fn main() {
     "webm" => "webm".to_string(),
     _ => "".to_string(),
   };
-  //println!("best video format: {} ({})", best_video.id, best_video.ext);
-  //println!("best audio format: {} ({})", best_audio[&audio_ext].id, best_audio[&audio_ext].ext);
+  let video_output = escape(
+    format!("{}_{}.{}", video_title, best_video.id, best_video.ext)
+  );
+  let audio_output = escape(
+    format!("{}_{}.{}", video_title, best_audio[&audio_ext].id, best_audio[&audio_ext].ext)
+  );
+  let final_output = escape(format!("{}.{}", video_title, best_video.ext));
   println!("#!/bin/sh");
-  println!("# video#{} ({}) - {}k", best_video.id, best_video.ext, best_video.size);
-  println!("# audio#{} ({}) - {}k", best_audio[&audio_ext].id, best_audio[&audio_ext].ext, best_audio[&audio_ext].size);
-  let video_output = format!("{}_{}.{}", video_title, best_video.id, best_video.ext).replace("(", "\\(").replace(")", "\\)");
-  let audio_output = format!("{}_{}.{}", video_title, best_audio[&audio_ext].id, best_audio[&audio_ext].ext).replace("(", "\\(").replace(")", "\\)");
-  let final_output = format!("{}.{}", video_title, best_video.ext).replace("(", "\\(").replace(")", "\\)");
+  println!("# video@{} ({}) - {}k", best_video.id, best_video.ext, best_video.size);
+  println!("# audio@{} ({}) - {}k", best_audio[&audio_ext].id, best_audio[&audio_ext].ext, best_audio[&audio_ext].size);
+  println!();
   println!("youtube-dl -f {} --continue -o \"{}\" \"{}\"", best_video.id, video_output, url);
   println!("youtube-dl -f {} --continue -o \"{}\" \"{}\"", best_audio[&audio_ext].id, audio_output, url);
-  println!("ffmpeg -i \"{}\" -i \"{}\" -c:v copy -c:a copy \"{}\"", video_output, audio_output, final_output);
-  println!("rm \"{}\" \"{}\"", video_output, audio_output);
   println!();
+  println!("ffmpeg -i \"{}\" -i \"{}\" -c:v copy -c:a copy \"{}\" < /dev/null", video_output, audio_output, final_output);
+  println!();
+  //println!("rm \"{}\"", video_output);
+  //println!("rm \"{}\"", audio_output);
   //if cfg!(target_os = "windows") {
     //let shell = Command::new("cmd");
   //} else {
@@ -113,4 +131,21 @@ fn main() {
     //io::stdout().write_all(&audio_log.stdout).unwrap();
     //io::stderr().write_all(&audio_log.stderr).unwrap();
   //}
+  let cwd = match env::current_dir() {
+    Ok(dir) => dir,
+    Err(_) => { panic!(); }
+  };
+  //println!("cwd: {:?}", Path::new(cwd.to_str().unwrap()).join("somefile"));
+  let video_path = Path::new(cwd.to_str().unwrap()).join(video_output);
+  print!("echo \"deleting '{:?}' ... ", video_path);
+  match fs::remove_file(video_path) {
+    Ok(_) => { println!("deleted\""); },
+    Err(e) => { println!("failed: {}\"", e); }
+  }
+  let audio_path = Path::new(cwd.to_str().unwrap()).join(audio_output);
+  print!("echo \"deleting '{:?}' ... ", audio_path);
+  match fs::remove_file(audio_path) {
+    Ok(_) => { println!("deleted\""); },
+    Err(e) => { println!("failed: {}\"", e); }
+  }
 }
