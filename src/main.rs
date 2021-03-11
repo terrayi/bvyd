@@ -10,26 +10,22 @@ struct Format {
   ext: String,
 }
 
-fn escape(input: String) -> String {
-  input.replace("(", "\\(")
-    .replace(")", "\\)")
-    .replace("[", "\\[")
-    .replace("]", "\\]")
-    .replace("-", "\\-")
-}
-
 fn execute(command: String) {
-  //if cfg!(target_os = "windows") {
-  // } else {
-  let mut handle = Command::new("sh")
+  if cfg!(target_os = "windows") {
+    let mut handle = Command::new("cmd")
+      .arg("/C")
+      .arg(&command)
+      .spawn()
+      .expect(format!("failed on '{}'", command).as_str());
+    handle.wait().expect("failed to wait");
+  } else {
+    let mut handle = Command::new("sh")
       .arg("-c")
       .arg(&command)
       .spawn()
       .expect(format!("failed on '{}'", command).as_str());
-
-  handle.wait()
-    .expect("failed to wait");
-  // }
+    handle.wait().expect("failed to wait");
+  }
 }
 
 fn main() {
@@ -111,20 +107,25 @@ fn main() {
     "webm" => "webm".to_string(),
     _ => "".to_string(),
   };
-  let video_output = escape(
-    format!("{}_{}.{}", video_title, best_video.id, best_video.ext)
+
+  // file names
+  let video_output = format!(
+    "{}_{}.{}",
+    video_title,
+    best_video.id,
+    best_video.ext
   );
-  let audio_output = escape(format!(
+  let audio_output = format!(
     "{}_{}.{}",
     video_title,
     best_audio[&audio_ext].id,
     best_audio[&audio_ext].ext
-  ));
-  let final_output = escape(format!(
+  );
+  let final_output = format!(
     "{}.{}",
     video_title,
     best_video.ext
-  ));
+  );
 
   // display chosen formats
   println!("Selection:");
@@ -174,14 +175,14 @@ fn main() {
   //println!("cwd: {:?}", Path::new(cwd.to_str().unwrap()).join("somefile"));
   let video_path = Path::new(cwd.to_str().unwrap())
     .join(video_output.clone());
-  print!("deleting '{:?}' ... ", video_output.clone());
+  print!("deleting {:?}... ", video_output.clone());
   match fs::remove_file(video_path) {
     Ok(_) => { println!("deleted"); },
     Err(e) => { println!("failed: {}", e); }
   }
   let audio_path = Path::new(cwd.to_str().unwrap())
     .join(audio_output.clone());
-  print!("deleting '{:?}' ... ", audio_output.clone());
+  print!("deleting {:?} ...", audio_output.clone());
   match fs::remove_file(audio_path) {
     Ok(_) => { println!("deleted"); },
     Err(e) => { println!("failed: {}", e); }
