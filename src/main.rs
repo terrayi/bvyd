@@ -1,10 +1,7 @@
 use youtube_dl::{YoutubeDl, YoutubeDlOutput};
 use std::collections::HashMap;
-//use std::io::{self, Write};
-//use std::io::Read;
 use std::path::Path;
 use std::process::Command;
-//use std::{env, fs, thread, time};
 use std::{env, fs};
 
 struct Format {
@@ -19,42 +16,26 @@ fn escape(input: String) -> String {
     .replace("[", "\\[")
     .replace("]", "\\]")
     .replace("-", "\\-")
-    //.replace(" ", "\\ ")
 }
 
 fn execute(command: String) {
+  //if cfg!(target_os = "windows") {
+  // } else {
   let mut handle = Command::new("sh")
       .arg("-c")
       .arg(&command)
-      //.stdout(std::process::Stdio::piped())
       .spawn()
-      //.unwrap();
       .expect(format!("failed on '{}'", command).as_str());
 
   handle.wait()
     .expect("failed to wait");
-
-  //let mut s = String::new();
-  //match handle.stdout.unwrap().read_to_string(&mut s) {
-  //  Err(why) => panic!("{}", why),
-  //  Ok(_) => print!("{}", s),
-  //}
-  //loop {
-  //  match handle.try_wait() {
-  //    Ok(Some(_)) => { break; }
-  //    Ok(None) => {}
-  //    Err(_) => { break; }
-  //  }
-  //  let mut buf = String::new();
-  //  handle.stdout.as_mut().unwrap().read_to_string(&mut buf);
-  //  println!("{}", buf);
-  //}
+  // }
 }
 
 fn main() {
   let args: Vec<String> = env::args().collect();
   if args.len() < 2 {
-    panic!();
+    panic!("youtube url is required as an argument");
   }
   let url = &args[1];
   let output = YoutubeDl::new(url)
@@ -63,16 +44,24 @@ fn main() {
     .unwrap();
   //println!("{:#?}", output);
   let mut video_title = "".to_string();
-  let mut best_video = Format {id: "0".to_string(), size: 0.0, ext: "".to_string()};
+  let mut best_video = Format {
+    id: "0".to_string(),
+    size: 0.0,
+    ext: "".to_string()
+  };
   let mut best_audio = HashMap::<String, Format>::new();
 
+  // parse
   match output {
     YoutubeDlOutput::Playlist(_) => println!("playlist not supported"),
     YoutubeDlOutput::SingleVideo(v) => {
-      //println!("singlevideo: {:#?}", v)
-      //println!("title: {}", v.title);
+      //println!("singlevideo: {:#?}", v);
+      println!("Id: {:?}", v.display_id.unwrap());
+      println!("Title: {}", v.title);
       video_title = v.title.clone();
       //println!("formats: {:#?}", v.formats);
+      println!("Formats:");
+      // iterate through available formats
       for f in v.formats.unwrap() {
         //println!("{:#?}", f);
         let format_id = f.format_id.unwrap();
@@ -86,11 +75,11 @@ fn main() {
         };
         let ext = f.ext.unwrap();
         let tbr = f.tbr.unwrap();
-        //print!("{} {} {}k", format_id, ext, tbr);
+        print!("  {} {} {}k", format_id, ext, tbr);
         if has_video {
-          //let width = f.width.unwrap();
-          //let height = f.height.unwrap();
-          //print!(" - {} x {}", width, height);
+          let width = f.width.unwrap();
+          let height = f.height.unwrap();
+          print!(" - {} x {}", width, height);
           if tbr > best_video.size {
             best_video.size = tbr;
             best_video.id = format_id.clone();
@@ -98,17 +87,25 @@ fn main() {
           }
         }
         if has_audio {
-          //let abr = f.abr.unwrap();
-          //print!(" - {}kbps", abr);
-          if !has_video && (!best_audio.contains_key(&ext) || tbr > best_audio[&ext].size) {
-            best_audio.insert(ext.clone(), Format{id: format_id.clone(), size: tbr, ext: ext.clone()});
+          if !has_video &&
+            (!best_audio.contains_key(&ext) || tbr > best_audio[&ext].size) {
+            best_audio.insert(
+              ext.clone(),
+              Format{
+                id: format_id.clone(),
+                size: tbr,
+                ext: ext.clone()
+              }
+            );
           }
         }
-        //println!();
+        println!();
       }
     }
   }
+  println!();
 
+  // select best formats
   let audio_ext = match best_video.ext.as_str() {
     "mp4" => "m4a".to_string(),
     "webm" => "webm".to_string(),
@@ -117,49 +114,35 @@ fn main() {
   let video_output = escape(
     format!("{}_{}.{}", video_title, best_video.id, best_video.ext)
   );
-  let audio_output = escape(
-    format!("{}_{}.{}", video_title, best_audio[&audio_ext].id, best_audio[&audio_ext].ext)
+  let audio_output = escape(format!(
+    "{}_{}.{}",
+    video_title,
+    best_audio[&audio_ext].id,
+    best_audio[&audio_ext].ext
+  ));
+  let final_output = escape(format!(
+    "{}.{}",
+    video_title,
+    best_video.ext
+  ));
+
+  // display chosen formats
+  println!("Selection:");
+  println!(
+    "  video@{} .{}: {}k",
+    best_video.id,
+    best_video.ext,
+    best_video.size
   );
-  let final_output = escape(format!("{}.{}", video_title, best_video.ext));
-  //println!("#!/bin/sh");
-  println!("# video@{} ({}) - {}k", best_video.id, best_video.ext, best_video.size);
-  println!("# audio@{} ({}) - {}k", best_audio[&audio_ext].id, best_audio[&audio_ext].ext, best_audio[&audio_ext].size);
+  println!(
+    "  audio@{} .{}: {}k",
+    best_audio[&audio_ext].id,
+    best_audio[&audio_ext].ext,
+    best_audio[&audio_ext].size
+  );
   println!();
-  //println!("youtube-dl -f {} --continue -o \"{}\" \"{}\"", best_video.id, video_output, url);
-  //println!("youtube-dl -f {} --continue -o \"{}\" \"{}\"", best_audio[&audio_ext].id, audio_output, url);
-  //println!();
-  //println!("ffmpeg -i \"{}\" -i \"{}\" -c:v copy -c:a copy \"{}\" < /dev/null", video_output, audio_output, final_output);
-  println!();
-  //println!("rm \"{}\"", video_output);
-  //println!("rm \"{}\"", audio_output);
-  //if cfg!(target_os = "windows") {
-    //let shell = Command::new("cmd");
-  //} else {
-    //let video_log = Command::new("sh")
-    //  .arg("-c")
-    //  .arg(format!(
-    //    "youtube-dl -f {} --continue -o \"{}\" \"{}\"",
-    //    best_video.id,
-    //    video_output,
-    //    url
-    //  ))
-    //  .output()
-    //  .expect("failed to download video");
-    //io::stdout().write_all(&video_log.stdout).unwrap();
-    //io::stderr().write_all(&video_log.stderr).unwrap();
-    //let audio_log = Command::new("sh")
-    //  .arg("-c")
-    //  .arg(format!(
-    //    "youtube-dl -f {} --continue -o \"{}\" \"{}\"",
-    //    best_audio[&audio_ext].id,
-    //    audio_output,
-    //    url
-    //  ))
-    //  .output()
-    //  .expect("failed to download audio");
-    //io::stdout().write_all(&audio_log.stdout).unwrap();
-    //io::stderr().write_all(&audio_log.stderr).unwrap();
-  //}
+
+  // download video part
   execute(format!(
     "youtube-dl -f {} --continue -o \"{}\" \"{}\"",
     best_video.id,
@@ -167,23 +150,7 @@ fn main() {
     url
   ));
 
-  //let video_log = Command::new("sh")
-  //    .arg("-c")
-  //    .arg(format!(
-  //      "youtube-dl -f {} --continue -o \"{}\" \"{}\"",
-  //      best_video.id,
-  //      video_output,
-  //      url
-  //    ))
-  //    .stdout(std::process::Stdio::piped())
-  //    .spawn()
-  //    .expect("failed to download video");
-  //let mut s = String::new();
-  //match video_log.stdout.unwrap().read_to_string(&mut s) {
-  //  Err(why) => panic!("{}", why),
-  //  Ok(_) => print!("{}", s),
-  //}
-
+  // download audio part
   execute(format!(
     "youtube-dl -f {} --continue -o \"{}\" \"{}\"",
     best_audio[&audio_ext].id,
@@ -191,25 +158,7 @@ fn main() {
     url
   ));
 
-  //let audio_log = Command::new("sh")
-  //    .arg("-c")
-  //    .arg(format!(
-  //      "youtube-dl -f {} --continue -o \"{}\" \"{}\"",
-  //      best_audio[&audio_ext].id,
-  //      audio_output,
-  //      url
-  //    ))
-  //    .stdout(std::process::Stdio::piped())
-  //    .spawn()
-  //    .expect("failed to download audio");
-  //let mut s = String::new();
-  //match audio_log.stdout.unwrap().read_to_string(&mut s) {
-  //  Err(why) => panic!("{}", why),
-  //  Ok(_) => print!("{}", s),
-  //}
-
-  // thread::sleep(time::Duration::from_secs(1));
-
+  // combine video and audio parts
   execute(format!(
     "ffmpeg -i \"{}\" -i \"{}\" -c:v copy -c:a copy \"{}\" < /dev/null",
     video_output,
@@ -217,21 +166,24 @@ fn main() {
     final_output
   ));
 
+  // unlink video and audio parts
   let cwd = match env::current_dir() {
     Ok(dir) => dir,
     Err(_) => { panic!(); }
   };
   //println!("cwd: {:?}", Path::new(cwd.to_str().unwrap()).join("somefile"));
-  let video_path = Path::new(cwd.to_str().unwrap()).join(video_output);
-  print!("echo \"deleting '{:?}' ... ", video_path);
+  let video_path = Path::new(cwd.to_str().unwrap())
+    .join(video_output.clone());
+  print!("deleting '{:?}' ... ", video_output.clone());
   match fs::remove_file(video_path) {
-    Ok(_) => { println!("deleted\""); },
-    Err(e) => { println!("failed: {}\"", e); }
+    Ok(_) => { println!("deleted"); },
+    Err(e) => { println!("failed: {}", e); }
   }
-  let audio_path = Path::new(cwd.to_str().unwrap()).join(audio_output);
-  print!("echo \"deleting '{:?}' ... ", audio_path);
+  let audio_path = Path::new(cwd.to_str().unwrap())
+    .join(audio_output.clone());
+  print!("deleting '{:?}' ... ", audio_output.clone());
   match fs::remove_file(audio_path) {
-    Ok(_) => { println!("deleted\""); },
-    Err(e) => { println!("failed: {}\"", e); }
+    Ok(_) => { println!("deleted"); },
+    Err(e) => { println!("failed: {}", e); }
   }
 }
