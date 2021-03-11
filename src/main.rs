@@ -1,11 +1,11 @@
-use youtube_dl::YoutubeDl;
-use youtube_dl::YoutubeDlOutput;
+use youtube_dl::{YoutubeDl, YoutubeDlOutput};
 use std::collections::HashMap;
-use std::env;
-use std::fs;
 //use std::io::{self, Write};
+//use std::io::Read;
 use std::path::Path;
-//use std::process::Command;
+use std::process::Command;
+//use std::{env, fs, thread, time};
+use std::{env, fs};
 
 struct Format {
   id: String,
@@ -20,6 +20,35 @@ fn escape(input: String) -> String {
     .replace("]", "\\]")
     .replace("-", "\\-")
     //.replace(" ", "\\ ")
+}
+
+fn execute(command: String) {
+  let mut handle = Command::new("sh")
+      .arg("-c")
+      .arg(&command)
+      //.stdout(std::process::Stdio::piped())
+      .spawn()
+      //.unwrap();
+      .expect(format!("failed on '{}'", command).as_str());
+
+  handle.wait()
+    .expect("failed to wait");
+
+  //let mut s = String::new();
+  //match handle.stdout.unwrap().read_to_string(&mut s) {
+  //  Err(why) => panic!("{}", why),
+  //  Ok(_) => print!("{}", s),
+  //}
+  //loop {
+  //  match handle.try_wait() {
+  //    Ok(Some(_)) => { break; }
+  //    Ok(None) => {}
+  //    Err(_) => { break; }
+  //  }
+  //  let mut buf = String::new();
+  //  handle.stdout.as_mut().unwrap().read_to_string(&mut buf);
+  //  println!("{}", buf);
+  //}
 }
 
 fn main() {
@@ -92,14 +121,14 @@ fn main() {
     format!("{}_{}.{}", video_title, best_audio[&audio_ext].id, best_audio[&audio_ext].ext)
   );
   let final_output = escape(format!("{}.{}", video_title, best_video.ext));
-  println!("#!/bin/sh");
+  //println!("#!/bin/sh");
   println!("# video@{} ({}) - {}k", best_video.id, best_video.ext, best_video.size);
   println!("# audio@{} ({}) - {}k", best_audio[&audio_ext].id, best_audio[&audio_ext].ext, best_audio[&audio_ext].size);
   println!();
-  println!("youtube-dl -f {} --continue -o \"{}\" \"{}\"", best_video.id, video_output, url);
-  println!("youtube-dl -f {} --continue -o \"{}\" \"{}\"", best_audio[&audio_ext].id, audio_output, url);
-  println!();
-  println!("ffmpeg -i \"{}\" -i \"{}\" -c:v copy -c:a copy \"{}\" < /dev/null", video_output, audio_output, final_output);
+  //println!("youtube-dl -f {} --continue -o \"{}\" \"{}\"", best_video.id, video_output, url);
+  //println!("youtube-dl -f {} --continue -o \"{}\" \"{}\"", best_audio[&audio_ext].id, audio_output, url);
+  //println!();
+  //println!("ffmpeg -i \"{}\" -i \"{}\" -c:v copy -c:a copy \"{}\" < /dev/null", video_output, audio_output, final_output);
   println!();
   //println!("rm \"{}\"", video_output);
   //println!("rm \"{}\"", audio_output);
@@ -131,6 +160,63 @@ fn main() {
     //io::stdout().write_all(&audio_log.stdout).unwrap();
     //io::stderr().write_all(&audio_log.stderr).unwrap();
   //}
+  execute(format!(
+    "youtube-dl -f {} --continue -o \"{}\" \"{}\"",
+    best_video.id,
+    video_output,
+    url
+  ));
+
+  //let video_log = Command::new("sh")
+  //    .arg("-c")
+  //    .arg(format!(
+  //      "youtube-dl -f {} --continue -o \"{}\" \"{}\"",
+  //      best_video.id,
+  //      video_output,
+  //      url
+  //    ))
+  //    .stdout(std::process::Stdio::piped())
+  //    .spawn()
+  //    .expect("failed to download video");
+  //let mut s = String::new();
+  //match video_log.stdout.unwrap().read_to_string(&mut s) {
+  //  Err(why) => panic!("{}", why),
+  //  Ok(_) => print!("{}", s),
+  //}
+
+  execute(format!(
+    "youtube-dl -f {} --continue -o \"{}\" \"{}\"",
+    best_audio[&audio_ext].id,
+    audio_output,
+    url
+  ));
+
+  //let audio_log = Command::new("sh")
+  //    .arg("-c")
+  //    .arg(format!(
+  //      "youtube-dl -f {} --continue -o \"{}\" \"{}\"",
+  //      best_audio[&audio_ext].id,
+  //      audio_output,
+  //      url
+  //    ))
+  //    .stdout(std::process::Stdio::piped())
+  //    .spawn()
+  //    .expect("failed to download audio");
+  //let mut s = String::new();
+  //match audio_log.stdout.unwrap().read_to_string(&mut s) {
+  //  Err(why) => panic!("{}", why),
+  //  Ok(_) => print!("{}", s),
+  //}
+
+  // thread::sleep(time::Duration::from_secs(1));
+
+  execute(format!(
+    "ffmpeg -i \"{}\" -i \"{}\" -c:v copy -c:a copy \"{}\" < /dev/null",
+    video_output,
+    audio_output,
+    final_output
+  ));
+
   let cwd = match env::current_dir() {
     Ok(dir) => dir,
     Err(_) => { panic!(); }
