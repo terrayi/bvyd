@@ -4,7 +4,7 @@
 
  Instead of manually running a multiple number of commands below each time when I got to download a video from Youtube, this small utility will do it for me with only one command.
 
-```
+```shell
 youtube-dl -F "url"
 youtube-dl -f "videoId" "url"
 youtube-dl -f "audioId" "url"
