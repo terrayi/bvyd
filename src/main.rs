@@ -114,18 +114,27 @@ fn main() {
     video_title,
     best_video.id,
     best_video.ext
-  );
+  )
+  .replace("/", "-")
+  .trim()
+  .to_string();
   let audio_output = format!(
     "{}_{}.{}",
     video_title,
     best_audio[&audio_ext].id,
     best_audio[&audio_ext].ext
-  );
+  )
+  .replace("/", "-")
+  .trim()
+  .to_string();
   let final_output = format!(
     "{}.{}",
     video_title,
     best_video.ext
-  );
+  )
+  .replace("/", "-")
+  .trim()
+  .to_string();
 
   // display chosen formats
   println!("Selection:");
