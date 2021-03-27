@@ -33,7 +33,16 @@ fn main() {
   if args.len() < 2 {
     panic!("youtube url is required as an argument");
   }
-  let url = &args[1];
+  let url: &str;
+  match args[1].find('&') {
+    None => {
+      url = &args[1];
+    },
+    Some(offset) => {
+      url = &args[1][0..offset];
+    }
+  }
+  println!("Url: {}", url);
   let output = YoutubeDl::new(url)
     .socket_timeout("15")
     .run()
