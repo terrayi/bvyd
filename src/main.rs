@@ -48,6 +48,7 @@ fn main() {
     .run()
     .unwrap();
   //println!("{:#?}", output);
+  let mut video_id = "".to_string();
   let mut video_title = "".to_string();
   let mut best_video = Format {
     id: "0".to_string(),
@@ -61,7 +62,8 @@ fn main() {
     YoutubeDlOutput::Playlist(_) => println!("playlist not supported"),
     YoutubeDlOutput::SingleVideo(v) => {
       //println!("singlevideo: {:#?}", v);
-      println!("Id: {:?}", v.display_id.unwrap());
+      video_id = v.display_id.unwrap();
+      println!("Id: {:?}", video_id.clone());
       println!("Title: {}", v.title);
       video_title = v.title.clone();
       //println!("formats: {:#?}", v.formats);
@@ -120,7 +122,7 @@ fn main() {
   // file names
   let video_output = format!(
     "{}_{}.{}",
-    video_title,
+    video_id,
     best_video.id,
     best_video.ext
   )
@@ -129,21 +131,27 @@ fn main() {
   .to_string();
   let audio_output = format!(
     "{}_{}.{}",
-    video_title,
+    video_id,
     best_audio[&audio_ext].id,
     best_audio[&audio_ext].ext
   )
   .replace("/", "-")
   .trim()
   .to_string();
-  let final_output = format!(
-    "{}.{}",
-    video_title,
-    best_video.ext
-  )
-  .replace("/", "-")
-  .trim()
-  .to_string();
+
+  let options = sanitize_filename::Options {
+    truncate: true,
+    windows: true,
+    replacement: ""
+  };
+
+  let final_output = sanitize_filename::sanitize_with_options(
+    format!("{}.{}", video_title, best_video.ext)
+      .replace("/", "-")
+      .trim()
+      .to_string(),
+    options
+  );
 
   // display chosen formats
   println!("Selection:");
